@@ -1,6 +1,6 @@
 import express from "express";
 import { serve } from "inngest/express";
-import { inngest, functions } from "./src/inngest";
+import { inngest, functions } from "./lib/inngest.js";
 import dotenv from "dotenv/config";
 import cors from "cors";
 import { connectDB } from "./lib/db.js";
