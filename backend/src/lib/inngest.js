@@ -36,7 +36,7 @@ const syncUser = inngest.createFunction(
 // function to delete user from MongoDB and Stream
 const deleteUserFromDB = inngest.createFunction(
   { id: "delete-user-from-db", triggers: { event: "clerk/user.deleted" } },
-  
+
   async ({ event }) => {
     // ! deleting user from MongoDB
     await connectDB();
