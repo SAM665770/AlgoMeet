@@ -5,8 +5,9 @@ import { inngest, functions } from "./lib/inngest.js";
 import { clerkMiddleware } from "@clerk/express";
 import cors from "cors";
 import { connectDB } from "./lib/db.js";
-import { protectRoute } from "./middlewares/protectRoute.js";
-import chatRoutes from "./routes/chatRoutes.js";
+import { protectRoute } from "./middlewares/protectRoute.middleware.js";
+import chatRoutes from "./routes/chat.route.js";
+import sessionRoutes from "./routes/session.route.js";
 
 const app = express();
 
@@ -23,6 +24,15 @@ app.use(
 app.use("/api/inngest", serve({ client: inngest, functions }));
 app.use(clerkMiddleware()); // ? this add auth field to request object: req.auth()
 app.use("/api/chats", chatRoutes);
+app.use("/api/session", sessionRoutes);
+app.use((err, req, res, next) => {
+  const statusCode = res.statusCode !== 200 ? res.statusCode : 500;
+  const message =
+    process.env.NODE_ENV === "production"
+      ? "Internal Server Error"
+      : err.message;
+  res.status(statusCode).json({ message });
+});
 
 app.get("/health", (req, res) => {
   res.status(200).json({ message: "api is up and running" });
