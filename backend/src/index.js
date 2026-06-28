@@ -27,7 +27,11 @@ app.use("/api/chats", chatRoutes);
 app.use("/api/session", sessionRoutes);
 app.use((err, req, res, next) => {
   const statusCode = res.statusCode !== 200 ? res.statusCode : 500;
-  res.status(statusCode).json({ message: err.message });
+  const message =
+    process.env.NODE_ENV === "production"
+      ? "Internal Server Error"
+      : err.message;
+  res.status(statusCode).json({ message });
 });
 
 app.get("/health", (req, res) => {

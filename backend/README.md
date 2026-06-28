@@ -53,3 +53,27 @@ I implemented this using a dedicated controller and lib folder structure, with e
 This approach kept the login process fast on the frontend while handling the heavier work in the background. It successfully synced user data across Clerk, MongoDB, and Stream without blocking the user experience.
 
 **Key Learning:** It taught me the importance of decoupling authentication from core application logic using background jobs and webhooks. In the future, I might add caching (like Redis) to further improve performance at scale.
+
+### Challenge 2: Handling Race Conditions in Session Joining
+
+One of the critical challenges I faced while building AlgoMeet was a race condition that could occur when multiple users tried to join the same interview session at the same time.
+
+**The Problem**
+
+Initially, I handled session joining with separate steps. I would first fetch the session, then check if it existed, whether the user was not the host, and whether the session was still active. This approach looked correct at first. However, I soon realized there was a major issue.
+
+When two users attempted to join the same session simultaneously, both would read the session document and see that the participant field was still empty. Both would pass all the checks. As a result, the first user would join successfully, but the second user would overwrite the participant field — effectively kicking out the first user. Additionally, the early version did not properly prevent users from joining already completed sessions.
+
+This is a classic race condition caused by following a read-check-write pattern, where multiple requests could read the same data before any of them finished writing.
+
+**The Solution**
+
+To solve this, I changed the logic to use a single atomic database operation. Instead of multiple separate steps, I performed the check and update together using MongoDB's `findOneAndUpdate` method. This ensured that only one user could match the required conditions — active session, empty participant slot, and not the host — and update the document at a time.
+
+If the operation returns null, it means someone else already joined or the session was no longer valid, and the second user receives a clear error message. After a successful update, I also added the user to the corresponding Stream chat channel.
+
+This approach completely eliminated the race condition and made the joining process reliable even under concurrent usage.
+
+**Key Learning**
+
+This experience taught me the importance of considering concurrency early when working with shared resources. Using atomic operations significantly improved the reliability of the session management system.

@@ -23,22 +23,29 @@ export const createSession = asyncHandler(async (req, res) => {
     callId,
   });
 
-  // ! create Stream video call
-  await streamClient.video.call("default", callId).getOrCreate({
-    data: {
+  try {
+    // ! create Stream video call
+    await streamClient.video.call("default", callId).getOrCreate({
+      data: {
+        created_by_id: clerkId,
+        custom: { problemTitle, difficulty, sessionId: session._id.toString() },
+      },
+    });
+
+    // ! create Stream Chat messaging
+    const channel = chatClient.channel("messaging", callId, {
+      name: `${problemTitle} Session`,
       created_by_id: clerkId,
-      custom: { problemTitle, difficulty, sessionId: session._id.toString() },
-    },
-  });
-
-  // ! create Stream Chat messaging
-  const channel = chatClient.channel("messaging", callId, {
-    name: `${problemTitle} Session`,
-    created_by_id: clerkId,
-    members: [clerkId],
-  });
-
-  await channel.create();
+      members: [clerkId],
+    });
+    await channel.create();
+  } catch (err) {
+    // ! rollback DB session if Stream fails
+    await Session.findByIdAndDelete(session._id);
+    return res.status(500).json({
+      message: "Failed to create Stream resources, session rolled back",
+    });
+  }
 
   res.status(201).json({ session });
 });
@@ -81,17 +88,23 @@ export const joinSession = asyncHandler(async (req, res) => {
   const userId = req.user._id;
   const clerkId = req.user.clerkId;
 
-  const session = await Session.findById(id);
+  // ! single atomic operation — find and update only if all conditions pass
+  const session = await Session.findOneAndUpdate(
+    {
+      _id: id,
+      status: "active", // must be active session
+      participant: null, // must have no participant yet
+      host: { $ne: userId }, // user cannot join their own session
+    },
+    { participant: userId },
+    { new: true }, // return updated document
+  );
 
+  // ! if null — session not found, full, ended, or user is the host
   if (!session)
-    return res.status(404).json({ message: "Session Not Found!!!" });
-
-  // ! check if session is already full - has a participant
-  if (session.participant)
-    return res.status(400).json({ message: "Session is full" });
-
-  session.participant = userId;
-  await session.save();
+    return res
+      .status(400)
+      .json({ message: "Session not found, full, or already ended" });
 
   const channel = chatClient.channel("messaging", session.callId);
   await channel.addMembers([clerkId]);
@@ -102,30 +115,30 @@ export const joinSession = asyncHandler(async (req, res) => {
 export const endSession = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const userId = req.user._id;
-  const clerkId = req.user.clerkId;
 
-  const session = await Session.findById({ id });
+  const session = await Session.findById(id);
 
   if (!session)
-    return res.status(404).message({ json: "Session Not Found!!!" });
+    return res.status(404).json({ message: "Session Not Found!!!" });
 
-  // ! check if user is the host
   if (session.host.toString() !== userId.toString())
-    return res.status(403).message({ json: "Only host can end the session" });
+    return res.status(403).json({ message: "Only host can end the session" });
 
-  // ! check if session is already completed
   if (session.status === "completed")
-    return res.status(400).message({ json: "Session has already ended!!!" });
+    return res.status(400).json({ message: "Session has already ended!!!" });
 
-  // ! ending the session
+  // ! await the save before touching Stream resources
   session.status = "completed";
-  session.save();
+  await session.save();
 
-  // ! delete stream video call
+  // ! delete Stream video call
   const call = streamClient.video.call("default", session.callId);
   await call.delete({ hard: true });
 
-  // ! delete stream chat channel
-  const channel = await chatClient.channel("messaging", session.callId);
+  // ! delete Stream chat channel
+  const channel = chatClient.channel("messaging", session.callId);
   await channel.delete();
+
+  // ! send success response
+  res.status(200).json({ message: "Session ended successfully" });
 });
