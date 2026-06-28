@@ -1,6 +1,6 @@
 import { Inngest } from "inngest";
 import { connectDB } from "./db.js";
-import { User } from "../models/user.models.js";
+import { User } from "../models/user.model.js";
 import { deleteStreamUser, upsertStreamUser } from "./stream.js";
 
 // Create a client to send and receive events
