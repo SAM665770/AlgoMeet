@@ -1,17 +1,25 @@
-import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/react";
+import { Navigate, Route, Routes } from "react-router-dom";
+import HomePage from "./pages/HomePage";
+import AboutPage from "./pages/AboutPage";
+import ProblemsPage from "./pages/ProblemsPage";
+import { useUser } from "@clerk/react";
+import { Toaster } from "react-hot-toast";
 
 const App = () => {
+  const { isSignedIn } = useUser();
+
   return (
     <>
-      <header className="h-screen ">
-        <Show when="signed-out">
-          <SignInButton mode="modal" className="my-4 bg-gray-400 mr-4"/>
-          <SignUpButton mode="modal" />
-        </Show>
-        <Show when="signed-in">
-          <UserButton mode="modal" />
-        </Show>
-      </header>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route
+          path="/problems"
+          element={isSignedIn ? <ProblemsPage /> : <Navigate to={"/"} />}
+        />
+      </Routes>
+
+      <Toaster />
     </>
   );
 };
