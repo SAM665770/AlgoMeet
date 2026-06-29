@@ -18,7 +18,7 @@ Automatic background synchronization — When a candidate joins a session or the
 Built-in caching & deduplication — Multiple components asking for the same session data share the cache automatically.
 Optimistic updates & mutations — Using useMutation + queryClient.invalidateQueries() or setQueryData for instant UI feedback when creating/joining sessions.
 Excellent devtools — The TanStack Query Devtools were invaluable during development to inspect cache state and debug stale data issues.
-Seamless integration with our stack — Works perfectly with Axios for API calls and plays nicely with Clerk auth (we pass the token via query context).
+Seamless integration with our stack — Works perfectly with Axios for API calls and plays nicely with Clerk auth (we use cookie-based sessions via `withCredentials`).
 
 In the final architecture, I wrapped the app with QueryClientProvider, created custom hooks like useActiveSessions, useSessionById, useProblems, etc., making data fetching extremely clean and maintainable.
 Would I choose it again? 100%. For any data-heavy React application, especially one with real-time collaboration elements like AlgoMeet, TanStack Query is one of the highest-ROI libraries you can add.
